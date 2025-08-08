@@ -1,29 +1,20 @@
 [
     {
         "title": "python",
-        "page": 10,
-        "total": 100,
-        "status": "Reading",
-        "favorite": true,
-        "deadline": "2025-08-15",
-        "user": "radhesh munde"
-    },
-    {
-        "title": "java",
-        "page": 100,
-        "total": 100,
-        "status": "Completed",
-        "favorite": true,
-        "deadline": "2025-08-15",
-        "user": "radhesh munde"
-    },
-    {
-        "title": "python",
         "page": 20,
         "total": 100,
         "status": "Reading",
         "favorite": true,
         "deadline": "2025-08-22",
         "user": "munde"
+    },
+    {
+        "title": "python",
+        "page": 100,
+        "total": 100,
+        "status": "Completed",
+        "favorite": true,
+        "deadline": "2025-08-15",
+        "user": "radhesh munde"
     }
 ]

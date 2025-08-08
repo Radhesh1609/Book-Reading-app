@@ -6,19 +6,18 @@ import os
 import base64
 from datetime import date
 
-# --- File paths ---
 USERS_FILE = "users.json"
 BOOKS_FILE = "reading.json"
-CONFIG_FILE = "config.json"  # NEW
+CONFIG_FILE = "config.json"
 
-# --- Password helpers ---
+# Password Helpers
 def encode_password(password):
     return base64.b64encode(password.encode()).decode()
 
 def decode_password(encoded):
     return base64.b64decode(encoded.encode()).decode()
 
-# --- JSON helpers ---
+# JSON Helpers
 def load_json(file, default):
     if os.path.exists(file):
         try:
@@ -32,7 +31,7 @@ def save_json(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=4)
 
-# --- Book data helpers ---
+# Book Data
 def get_user_books(username):
     all_books = load_json(BOOKS_FILE, [])
     return [b for b in all_books if b.get("user") == username]
@@ -43,7 +42,7 @@ def save_user_books(username, books):
     all_books.extend(books)
     save_json(BOOKS_FILE, all_books)
 
-# --- Custom Styling ---
+# Styling
 def apply_custom_style():
     st.markdown("""
         <style>
@@ -54,17 +53,24 @@ def apply_custom_style():
                 font-size: 16px;
                 border-radius: 10px;
                 padding: 10px;
+                background-color: #4CAF50;
+                color: white;
             }
-            .stTextInput>div>div>input {
-                font-size: 16px;
+            .stButton>button:hover {
+                background-color: #45a049;
             }
-            .stSelectbox>div>div>div {
+            .stTextInput>div>div>input,
+            .stNumberInput>div>div>input,
+            .stSelectbox>div>div>div,
+            .stDateInput>div>div>input {
                 font-size: 16px;
+                border-radius: 8px;
+                padding: 8px;
             }
         </style>
     """, unsafe_allow_html=True)
 
-# --- Auth Pages ---
+# Pages
 def signup_page():
     st.header("🔐 Sign Up")
     username = st.text_input("Create Username")
@@ -80,12 +86,13 @@ def signup_page():
             save_json(USERS_FILE, users)
             st.success("Account created. Please login.")
             st.session_state.page = "login"
+            st.rerun()
 
 def login_page():
     st.header("🔑 Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-    remember = st.checkbox("Remember Me")  # NEW
+    remember = st.checkbox("Remember Me")
 
     if st.button("Login"):
         users = load_json(USERS_FILE, {})
@@ -93,11 +100,9 @@ def login_page():
         if encoded_pwd and decode_password(encoded_pwd) == password:
             st.session_state.user = username
             st.session_state.page = "language"
-            # Save login info to config
             save_json(CONFIG_FILE, {
                 "username": username,
-                "remember": remember,
-                "lang": st.session_state.get("lang", "English")
+                "remember": remember
             })
             st.rerun()
         else:
@@ -106,7 +111,6 @@ def login_page():
         st.session_state.page = "signup"
         st.rerun()
 
-# --- Language Selection ---
 def language_selection_page():
     st.header("🌐 Choose Language / भाषा चुनें")
     col1, col2 = st.columns(2)
@@ -119,7 +123,6 @@ def language_selection_page():
         st.session_state.page = "welcome"
         st.rerun()
 
-# --- Welcome Page ---
 def welcome_page():
     lang = st.session_state.get("lang", "English")
     username = st.session_state.get("user", "User")
@@ -136,21 +139,29 @@ def welcome_page():
             st.session_state.page = "menu"
             st.rerun()
 
-# --- Main Menu ---
 def menu_page():
-    st.header("📋 Main Menu")
+    lang = st.session_state.get("lang", "English")
+    st.header("📋 मेनू" if lang == "Hindi" else "📋 Main Menu")
     col1, col2 = st.columns(2)
-    if col1.button("📚 Book Tracker"):
+    if col1.button("📚 पुस्तक ट्रैकर" if lang == "Hindi" else "📚 Book Tracker"):
         st.session_state.page = "tracker"
         st.session_state.tracker_subpage = "home"
         st.rerun()
-    if col2.button("🚪 Logout"):
+    if col2.button("🚪 लॉगआउट" if lang == "Hindi" else "🚪 Logout"):
         st.session_state.clear()
-        save_json(CONFIG_FILE, {})  # Clear remember config
+        save_json(CONFIG_FILE, {})
         st.session_state.page = "login"
         st.rerun()
 
-# --- Book Tracker Pages ---
+def tracker_router():
+    subpage = st.session_state.get("tracker_subpage", "home")
+    if subpage == "home":
+        book_tracker_home()
+    elif subpage == "add":
+        book_add_page()
+    elif subpage == "list":
+        book_list_page()
+
 def book_tracker_home():
     st.title("📖 Book Tracker Menu")
     col1, col2 = st.columns(2)
@@ -213,73 +224,55 @@ def book_list_page():
         if match_title and match_status and match_fav:
             filtered.append(book)
 
-    if filtered:
-        for idx, book in enumerate(filtered):
-            st.markdown(f"### {'⭐' if book['favorite'] else ''} {book['title']}")
-            st.write(f"Status: {book['status']} | Pages: {book['page']}/{book['total']}")
-            progress = int((book['page'] / book['total']) * 100)
-            st.progress(progress)
-            st.write(f"📅 Deadline: {book['deadline']}")
+    for idx, book in enumerate(filtered):
+        st.markdown(f"### {'⭐' if book['favorite'] else ''} {book['title']}")
+        st.write(f"Status: {book['status']} | Pages: {book['page']}/{book['total']}")
+        progress = int((book['page'] / book['total']) * 100)
+        st.progress(progress)
+        st.write(f"📅 Deadline: {book['deadline']}")
 
-            col1, col2 = st.columns(2)
-            if col1.button("✏️ Edit", key=f"edit_{idx}"):
-                with st.form(f"edit_form_{idx}"):
-                    new_title = st.text_input("Edit Title", value=book["title"])
-                    new_page = st.number_input("Edit Pages Read", value=book["page"], min_value=0)
-                    new_total = st.number_input("Edit Total Pages", value=book["total"], min_value=1)
-                    new_status = st.selectbox("Edit Status", ["To Read", "Reading", "Completed"], index=["To Read", "Reading", "Completed"].index(book["status"]))
-                    new_deadline = st.date_input("Edit Deadline", value=date.fromisoformat(book["deadline"]))
-                    new_fav = st.checkbox("Favorite ⭐", value=book["favorite"])
-                    save = st.form_submit_button("Save Changes")
-                    if save:
-                        book.update({
-                            "title": new_title,
-                            "page": new_page,
-                            "total": new_total,
-                            "status": new_status,
-                            "deadline": str(new_deadline),
-                            "favorite": new_fav
-                        })
-                        save_user_books(st.session_state.user, books)
-                        st.success("Book updated.")
-                        st.rerun()
-
-            if col2.button("🗑️ Delete", key=f"del_{idx}"):
-                books.remove(book)
-                save_user_books(st.session_state.user, books)
-                st.success("Book deleted.")
-                st.rerun()
-            st.markdown("---")
-    else:
-        st.info("No books found with current filters.")
+        with st.expander("✏️ Edit or 🗑️ Delete"):
+            with st.form(f"edit_form_{idx}"):
+                new_title = st.text_input("Edit Title", value=book["title"])
+                new_page = st.number_input("Edit Pages Read", value=book["page"], min_value=0)
+                new_total = st.number_input("Edit Total Pages", value=book["total"], min_value=1)
+                new_status = st.selectbox("Edit Status", ["To Read", "Reading", "Completed"], index=["To Read", "Reading", "Completed"].index(book["status"]))
+                new_deadline = st.date_input("Edit Deadline", value=date.fromisoformat(book["deadline"]))
+                new_fav = st.checkbox("Favorite ⭐", value=book["favorite"])
+                col1, col2 = st.columns(2)
+                if col1.form_submit_button("Save Changes"):
+                    book.update({
+                        "title": new_title,
+                        "page": new_page,
+                        "total": new_total,
+                        "status": new_status,
+                        "deadline": str(new_deadline),
+                        "favorite": new_fav
+                    })
+                    save_user_books(st.session_state.user, books)
+                    st.success("Book updated.")
+                    st.rerun()
+                if col2.form_submit_button("Delete Book"):
+                    books.remove(book)
+                    save_user_books(st.session_state.user, books)
+                    st.success("Book deleted.")
+                    st.rerun()
 
     if st.button("⬅️ Back"):
         st.session_state.tracker_subpage = "home"
         st.rerun()
 
-def tracker_router():
-    subpage = st.session_state.get("tracker_subpage", "home")
-    if subpage == "add":
-        book_add_page()
-    elif subpage == "list":
-        book_list_page()
-    else:
-        book_tracker_home()
-
-# --- Main App ---
 def app():
     apply_custom_style()
 
     if "page" not in st.session_state:
         st.session_state.page = "login"
 
-    # 👇 Auto login if remembered
     if "user" not in st.session_state:
         cfg = load_json(CONFIG_FILE, {})
         if cfg.get("remember") and cfg.get("username"):
             st.session_state.user = cfg["username"]
-            st.session_state.lang = cfg.get("lang", "English")
-            st.session_state.page = "welcome"
+            st.session_state.page = "language"
 
     page = st.session_state.page
 
