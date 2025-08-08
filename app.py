@@ -1,3 +1,5 @@
+# book_tracker_remember_me.py
+
 import streamlit as st
 import json
 import os
@@ -7,6 +9,7 @@ from datetime import date
 # --- File paths ---
 USERS_FILE = "users.json"
 BOOKS_FILE = "reading.json"
+CONFIG_FILE = "config.json"  # NEW
 
 # --- Password helpers ---
 def encode_password(password):
@@ -82,12 +85,20 @@ def login_page():
     st.header("🔑 Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+    remember = st.checkbox("Remember Me")  # NEW
+
     if st.button("Login"):
         users = load_json(USERS_FILE, {})
         encoded_pwd = users.get(username)
         if encoded_pwd and decode_password(encoded_pwd) == password:
             st.session_state.user = username
             st.session_state.page = "language"
+            # Save login info to config
+            save_json(CONFIG_FILE, {
+                "username": username,
+                "remember": remember,
+                "lang": st.session_state.get("lang", "English")
+            })
             st.rerun()
         else:
             st.error("Invalid credentials.")
@@ -135,13 +146,13 @@ def menu_page():
         st.rerun()
     if col2.button("🚪 Logout"):
         st.session_state.clear()
+        save_json(CONFIG_FILE, {})  # Clear remember config
         st.session_state.page = "login"
         st.rerun()
 
 # --- Book Tracker Pages ---
 def book_tracker_home():
     st.title("📖 Book Tracker Menu")
-    st.write("Choose what you want to do:")
     col1, col2 = st.columns(2)
     if col1.button("➕ Add New Book"):
         st.session_state.tracker_subpage = "add"
@@ -190,7 +201,6 @@ def book_list_page():
     st.header("📚 Your Book List")
     books = get_user_books(st.session_state.user)
 
-    # Filters
     search = st.text_input("Search by Title")
     status_filter = st.selectbox("Filter by Status", ["All", "To Read", "Reading", "Completed"])
     only_fav = st.checkbox("⭐ Show Only Favorites")
@@ -198,7 +208,7 @@ def book_list_page():
     filtered = []
     for book in books:
         match_title = search.lower() in book["title"].lower()
-        match_status = (status_filter == "All") or book["status"] == status_filter
+        match_status = (status_filter == "All") or (book["status"] == status_filter)
         match_fav = (not only_fav) or book["favorite"]
         if match_title and match_status and match_fav:
             filtered.append(book)
@@ -262,6 +272,14 @@ def app():
 
     if "page" not in st.session_state:
         st.session_state.page = "login"
+
+    # 👇 Auto login if remembered
+    if "user" not in st.session_state:
+        cfg = load_json(CONFIG_FILE, {})
+        if cfg.get("remember") and cfg.get("username"):
+            st.session_state.user = cfg["username"]
+            st.session_state.lang = cfg.get("lang", "English")
+            st.session_state.page = "welcome"
 
     page = st.session_state.page
 
